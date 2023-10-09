@@ -12,10 +12,34 @@ permissions:
   packages: write
 
 jobs:
-  build:
+  solid:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+        
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Set up Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Build
+        run: npm run build
+      
+  go:
+    runs-on: ubuntu-latest
+    needs: solid
+    steps:
+      - name: Checkout
+      - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -38,8 +62,9 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
-    needs: build
+    needs: go
     steps:
+      - name: Checkout
       - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
