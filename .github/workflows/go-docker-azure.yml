@@ -14,9 +14,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
         
     steps:
       - name: Checkout
@@ -39,12 +36,6 @@ jobs:
       
       - name: Build
         run: pnpm build
-      
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v3
-        with:
-          name: solid
-          path: web/dist
       
       - name: Set up Go
         uses: actions/setup-go@v4
