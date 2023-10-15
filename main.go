@@ -2,9 +2,13 @@ package main
 
 import (
 	"embed"
-	"fmt"
+	"log"
 	"net/http"
 	"strings"
+
+	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/playground"
+	"github.com/takashikawanaka/Veeee/graph"
 )
 
 //go:embed web/dist/*
@@ -23,73 +27,26 @@ func OpenFile(name string) []byte {
 }
 
 func main() {
-	fmt.Println("Server Start Up........")
-	http.ListenAndServe(":8080", &Router{})
-}
-
-type Router struct{}
-
-type Response struct {
-	content_type string
-	code         int
-	bytes        []byte
-}
-
-func (r *Response) WriteResponse(w *http.ResponseWriter) {
-	(*w).Header().Set("Content-Type", r.content_type)
-	(*w).WriteHeader(r.code)
-	(*w).Write(r.bytes)
-}
-
-func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	path := strings.Split(r.URL.Path, "/")
-	switch path[1] {
-	case "":
-		if r.Method == http.MethodGet {
-			fmt.Printf("GET : %s\n", r.URL.Path)
-			(&Response{
-				content_type: "text/html;charset=utf-8",
-				code:         http.StatusOK,
-				bytes:        html,
-			}).WriteResponse(&w)
-			return
+	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{}}))
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		log.Println(r.URL.Path)
+		http.ServeFile(w, r, "index.html")
+	})
+	http.HandleFunc("/static/", func(w http.ResponseWriter, r *http.Request) {
+		log.Println(r.URL.Path)
+		switch strings.Split(r.URL.Path, "/")[2] {
+		case "index.html":
+			http.Redirect(w, r, "/", http.StatusFound)
+		case "index.css":
+			http.ServeFile(w, r, "web/dist/index.css")
+		case "index.js":
+			http.ServeFile(w, r, "web/dist/index.js")
+		default:
+			http.NotFound(w, r)
 		}
-	case "static":
-		if r.Method == http.MethodGet && len(path) == 3 {
-			fmt.Printf("GET : %s\n", r.URL.Path)
-			res := SearchStatic(path[2])
-			res.WriteResponse(&w)
-			return
-		}
-	case "graphql":
-		switch r.Method {
-		case http.MethodGet:
-			fmt.Println("GraphQL")
-			return
-		}
-	}
-	http.Redirect(w, r, "/", http.StatusFound)
-}
-
-func SearchStatic(name string) Response {
-	switch name {
-	case "index.css":
-		return Response{
-			content_type: "text/css;charset=utf-8",
-			code:         http.StatusOK,
-			bytes:        css,
-		}
-	case "index.js":
-		return Response{
-			content_type: "text/javascript;charset=utf-8",
-			code:         http.StatusOK,
-			bytes:        js,
-		}
-	default:
-		return Response{
-			content_type: "text/plain;charset=utf-8",
-			code:         http.StatusNotFound,
-			bytes:        []byte("NotFound"),
-		}
-	}
+	})
+	http.Handle("/playground/", playground.Handler("GraphQL playground", "/query"))
+	http.Handle("/query/", srv)
+	log.Println("Server Start Up........")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
